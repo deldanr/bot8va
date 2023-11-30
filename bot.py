@@ -1,20 +1,20 @@
 from aiogram import Bot, Dispatcher, types
 from aiogram.utils import executor
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, BotCommand
-import main
+from dotenv import load_dotenv
 import pandas as pd
 import re
 import os
-from dotenv import load_dotenv
+
+load_dotenv()
 
 # Inicializar el bot
 TOKEN = os.getenv("TOKEN")
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
-df = main.crear_dataset()
+directorio_raiz = './Repositorio'
 
-
-def crear_dataset(directorio_raiz='./Repositorio'):
+def crear_dataset(directorio_raiz):
     dataset = []
     # Iterar sobre las carpetas de año
     for carpeta_ano in os.listdir(directorio_raiz):
@@ -36,6 +36,7 @@ def crear_dataset(directorio_raiz='./Repositorio'):
                     dataset.append({'Año': ano, 'Número': numero, 'Asunto': asunto, 'Ruta': ruta})
     return pd.DataFrame(dataset)
 
+df = crear_dataset(directorio_raiz = './Repositorio')
 
 # Funciones para obtener años y números
 def obtener_anios_disponibles(df):
@@ -44,21 +45,21 @@ def obtener_anios_disponibles(df):
 def obtener_numeros_por_anio(df, anio):
     return df[df['Año'] == anio]['Número'].tolist()
 
-
 # Comando /start
 @dp.message_handler(commands=['start'])
 async def start_command(message: types.Message):
     start_message = (
-        "¡Bienvenide!\n"
-        "Puedo ayudarte a navegar por las Ordenes del Día organizadas por año y número.\n\n"
-        "Comandos disponibles:\n"
-        "/start - Muestra este mensaje\n"
-        "/ver - Muestra los años disponibles para explorar"
+        "¡Hola! 🌟 ¡Bienvenido/a a nuestro espacio! 😊 Aquí encontrarás una herramienta muy útil para acceder rápidamente a las órdenes del día de la Comandancia CBS en formato PDF, directamente en tu dispositivo. 📁💻\n\n"
+        "Estamos constantemente trabajando en mejorar este desarrollo para ofrecerte aún más archivos en el futuro y recopilar los del pasado. 🔄📈\n\n"
+        "¡Esta iniciativa es producto del esfuerzo y dedicación de la ayudantía 2023! 👏\n\n"
+        "No te pierdas nuestra 'Guía de Ayudantía Documentada'📚✨ para obtener más información: [Guía de Ayudantía Documentada](https://immediate-capacity-6b6.notion.site/Gu-a-de-Ayudant-a-Documentada-8adbb8a8cf7043b7be4db8fc4e4a859f?pvs=4)\n\n"
+        "**Comandos disponibles:**\n"
+        "/Buscar - Buscar archivos"
     )
-    await message.reply(start_message)
+    await message.reply(start_message, parse_mode=types.ParseMode.MARKDOWN, disable_web_page_preview=True)
     
 # Comando /ver para mostrar años
-@dp.message_handler(commands=['ver'])
+@dp.message_handler(commands=['buscar'])
 async def send_welcome(message: types.Message):
     keyboard = InlineKeyboardMarkup(row_width=6)  # Ajusta el row_width según sea necesario
     anios = obtener_anios_disponibles(df)
@@ -85,11 +86,12 @@ async def enviar_pdf(callback_query: types.CallbackQuery):
     anio, numero = callback_query.data.split('-')
 
     # Encuentra la ruta del PDF en el DataFrame
-    ruta_pdf = df[(df['Año'] == anio) & (df['Número'] == numero)]['Ruta'].iloc[0]
-
     try:
+        ruta_pdf = df[(df['Año'] == anio) & (df['Número'] == numero)]['Ruta'].iloc[0]
         with open(ruta_pdf, 'rb') as pdf_file:
             await bot.send_document(callback_query.message.chat.id, pdf_file)
+    except FileNotFoundError:
+        await bot.send_message(callback_query.message.chat.id, f"El documento no se encontró.")
     except Exception as e:
         await bot.send_message(callback_query.message.chat.id, f"Error al enviar documento: {str(e)}")
 
@@ -97,7 +99,7 @@ async def enviar_pdf(callback_query: types.CallbackQuery):
 async def setup_bot_commands(dp):
     commands = [
         BotCommand(command="/start", description="Iniciar el bot"),
-        BotCommand(command="/ver", description="Ver años disponibles")
+        BotCommand(command="/buscar", description="Ver años disponibles")
     ]
     await bot.set_my_commands(commands)
     
